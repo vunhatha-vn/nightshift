@@ -1,0 +1,109 @@
+version: 1
+name: nightshift
+timezone: Asia/Ho_Chi_Minh
+
+schedule:
+  run_at: "02:00"
+  digest_at: "07:00"
+  days:
+    - mon
+    - tue
+    - wed
+    - thu
+    - fri
+    - sat
+    - sun
+
+budget:
+  max_prs_per_night: 3
+  max_files_per_pr: 12
+  max_diff_lines_per_pr: 400
+  max_dev_minutes_per_night: 90
+
+sources:
+  sentry:
+    enabled: true
+    query: "is:unresolved level:error times_seen:>10"
+    lookback_days: 14
+  github_actions:
+    enabled: true
+    workflows:
+      - ci
+      - test
+    lookback_days: 7
+  linear:
+    enabled: true
+    label: papercut
+    states:
+      - backlog
+      - todo
+  docs:
+    enabled: true
+    paths:
+      - "docs/**"
+      - "**/*.md"
+
+scoring:
+  formula: "affected_users * frequency / max(effort, 1)"
+  min_score: 1.0
+  max_candidates: 10
+
+allowlist:
+  - "src/**"
+  - "app/**"
+  - "packages/**"
+  - "tests/**"
+  - "docs/**"
+
+denylist:
+  - ".github/workflows/**"
+  - "infra/**"
+  - "terraform/**"
+  - "migrations/**"
+  - "**/auth/**"
+  - "**/billing/**"
+  - "**/payments/**"
+  - "**/*.env*"
+  - "**/secrets/**"
+  - "package-lock.json"
+  - "pnpm-lock.yaml"
+  - "yarn.lock"
+
+checks:
+  required:
+    - lint
+    - typecheck
+    - test
+  block_on_flaky: true
+
+pull_request:
+  branch_prefix: "nightshift/"
+  title_prefix: "[nightshift] "
+  draft: false
+  auto_merge: true
+  merge_method: squash
+  revert_on_failure: true
+  require_human_review: false
+  labels:
+    - nightshift
+    - automated
+
+escalation:
+  on_uncertainty: comment_and_stop
+  on_security: open_issue_only
+  on_missing_tests: add_regression_test_first
+  notify: "#nightshift"
+
+digest:
+  channel: "#nightshift"
+  max_items: 3
+  include:
+    - pr_links
+    - one_line_risk
+    - files_changed
+    - tests_run
+    - undo_command
+
+kill_switch:
+  env: NIGHTSHIFT_PAUSED
+  file: .nightshift-pause
